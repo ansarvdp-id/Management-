@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Mechanic Exam</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+
+    <style>
+        body { background-color: #f0f2f5; font-family: 'Arial', sans-serif; padding-bottom: 70px; }
+        .app-container { max-width: 480px; margin: 0 auto; background: white; min-height: 100vh; position: relative; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .top-bar { background: #212529; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: white; border-top: 1px solid #ddd; display: flex; justify-content: space-around; padding: 10px 0; z-index: 1000; }
+        @media (min-width: 480px) { .bottom-nav { width: 480px; left: 50%; transform: translateX(-50%); } }
+        .nav-item { text-align: center; color: #6c757d; font-size: 12px; cursor: pointer; flex: 1; }
+        .nav-item i { font-size: 20px; display: block; }
+        .nav-item.active { color: #0d6efd; font-weight: bold; }
+        .hidden { display: none !important; }
+        .card-box { padding: 15px; margin: 15px; background: white; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #eee; }
+        .q-item { background: #f8f9fa; border-left: 4px solid #0d6efd; padding: 10px; margin-bottom: 10px; border-radius: 5px; }
+        .q-badge { font-size: 10px; background: #212529; color: white; padding: 2px 6px; border-radius: 4px; }
+        .district-badge { font-size: 14px; background: #e9ecef; color: #333; padding: 5px 10px; border-radius: 20px; display: inline-flex; align-items: center; margin: 3px; border: 1px solid #ced4da; }
+        .district-badge i { margin-left: 8px; cursor: pointer; color: #dc3545; }
+        .login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #212529; z-index: 2000; display: flex; align-items: center; justify-content: center; }
+        .login-box { background: white; padding: 30px; border-radius: 10px; width: 90%; max-width: 400px; text-align: center; }
+
+        /* Print Preview */
+        #printPreviewOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 9999; overflow-y: auto; padding: 20px; }
+        .print-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
+        .print-table th, .print-table td { border: 1px solid #000; padding: 8px; text-align: left; }
+        @media print {
+            body * { visibility: hidden; }
+            #printPreviewOverlay, #printPreviewOverlay * { visibility: visible; }
+            #printPreviewOverlay { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; }
+            .no-print-btn { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+
+    <!-- LOGIN SECTION -->
+    <div id="loginSection" class="login-overlay">
+        <div class="login-box">
+            <i class="fas fa-user-shield fa-3x text-primary mb-3"></i>
+            <h4>এডমিন লগইন</h4>
+            <input type="email" id="adminEmail" class="form-control mb-3" placeholder="ইমেইল">
+            <input type="password" id="adminPass" class="form-control mb-3" placeholder="পাসওয়ার্ড">
+            <button onclick="adminLogin()" id="loginBtn" class="btn btn-dark w-100">লগইন</button>
+            <p class="text-muted mt-2 small">প্রথমবার লগইন করলে অটো এডমিন হবে।</p>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="mainApp" class="hidden">
+        <div class="top-bar">
+            <span class="fw-bold"><i class="fas fa-user-cog"></i> Admin Panel</span>
+            <button onclick="logout()" class="btn btn-sm btn-danger"><i class="fas fa-power-off"></i></button>
+        </div>
+
+        <!-- HOME -->
+        <div id="view-home" class="view-section">
+            <div class="card-box text-center bg-primary text-white">
+                <h4>মোট শিক্ষার্থী</h4>
+                <h1 id="totalUsers" class="fw-bold">0</h1>
+            </div>
+            <div class="card-box">
+                <h5 class="border-bottom pb-2 mb-3"><i class="fas fa-sliders-h"></i> পরীক্ষা নিয়ন্ত্রণ</h5>
+                <div class="mb-3 bg-warning bg-opacity-10 p-2 border border-warning rounded">
+                    <label class="small fw-bold text-dark">পরীক্ষার ব্যাচ (Batch ID):</label>
+                    <div class="input-group">
+                        <input type="text" id="examBatchId" class="form-control fw-bold" placeholder="Ex: batch_01">
+                        <button class="btn btn-dark" onclick="saveConfig()">সেট করুন</button>
+                    </div>
+                </div>
+                <div class="form-check form-switch mb-3 p-3 border rounded bg-light">
+                    <input class="form-check-input" type="checkbox" id="examSwitch" onchange="toggleExamStatus()">
+                    <label class="form-check-label fw-bold ms-2" for="examSwitch">পরীক্ষা চালু (ON/OFF)</label>
+                </div>
+                <div class="mb-2">
+                    <label class="small text-muted">সময় (মিনিট)</label>
+                    <input type="number" id="examDuration" class="form-control form-control-sm" placeholder="Ex: 30">
+                </div>
+                <button onclick="saveConfig()" class="btn btn-sm btn-success w-100">টাইম সেভ করুন</button>
+            </div>
+            <div class="card-box">
+                <h5 class="border-bottom pb-2 mb-3"><i class="fas fa-map-marker-alt"></i> জেলা সেটিংস</h5>
+                <div class="input-group mb-3">
+                    <input type="text" id="newDistrictInput" class="form-control" placeholder="জেলার নাম">
+                    <button onclick="addDistrict()" class="btn btn-primary"><i class="fas fa-plus"></i></button>
+                </div>
+                <div id="districtListContainer"><small class="text-muted">লোড হচ্ছে...</small></div>
+            </div>
+            <div class="card-box">
+                <h5 class="border-bottom pb-2 mb-3"><i class="fas fa-key"></i> লাইসেন্স কি</h5>
+                <div class="input-group">
+                    <input type="number" id="keyDays" class="form-control" placeholder="দিন">
+                    <button onclick="generateKey()" class="btn btn-dark">তৈরি করুন</button>
+                </div>
+                <div id="newKeyDisplay" class="mt-2 text-success fw-bold text-center"></div>
+            </div>
+        </div>
+
+        <!-- QUESTIONS -->
+        <div id="view-questions" class="view-section hidden">
+            <div class="card-box">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 id="qBoxTitle" class="m-0"><i class="fas fa-plus-circle"></i> প্রশ্ন যোগ</h5>
+                    <span class="badge bg-warning text-dark" id="displayBatchBadge">Batch: ...</span>
+                </div>
+                <input type="hidden" id="editQId" value="">
+                <select id="qType" class="form-select mb-2" onchange="handleQType()">
+                    <option value="short">লিখিত</option>
+                    <option value="mcq">MCQ</option>
+                    <option value="truefalse">সত্য/মিথ্যা</option>
+                </select>
+                <input type="text" id="qText" class="form-control mb-2" placeholder="প্রশ্ন...">
+                <input type="number" id="qMark" class="form-control mb-2" placeholder="মার্ক" value="1">
+                <div id="mcqOptionsDiv" class="hidden p-2 bg-light border rounded mb-2">
+                    <input type="text" id="opt1" class="form-control form-control-sm mb-1" placeholder="অপশন ১">
+                    <input type="text" id="opt2" class="form-control form-control-sm mb-1" placeholder="অপশন ২">
+                    <input type="text" id="opt3" class="form-control form-control-sm mb-1" placeholder="অপশন ৩">
+                    <input type="text" id="opt4" class="form-control form-control-sm mb-1" placeholder="অপশন ৪">
+                </div>
+                <div class="d-flex gap-2">
+                    <button onclick="addQuestion()" id="saveQBtn" class="btn btn-primary w-100">সেভ করুন</button>
+                    <button onclick="cancelEdit()" id="cancelEditBtn" class="btn btn-secondary hidden">বাতিল</button>
+                </div>
+            </div>
+            <div class="p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="text-muted m-0">প্রশ্ন তালিকা:</h6>
+                    <button class="btn btn-sm btn-outline-dark py-0" onclick="loadQuestions()"><i class="fas fa-sync"></i></button>
+                </div>
+                <div id="allQuestionsList"></div>
+            </div>
+        </div>
+
+        <!-- GRADING -->
+        <div id="view-grading" class="view-section hidden">
+            <div id="submissionListContainer" class="p-3">
+                <h5 class="mb-3">খাতা দেখুন</h5>
+                <ul id="submissionList" class="list-group">
+                    <li class="list-group-item text-center text-muted">লোড হচ্ছে...</li>
+                </ul>
+            </div>
+            <div id="gradingPaper" class="hidden p-3 bg-white min-vh-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <button onclick="closeGradingPaper()" class="btn btn-sm btn-secondary">ব্যাকে যান</button>
+                    <button onclick="openPrintPreview()" class="btn btn-sm btn-dark"><i class="fas fa-file-pdf"></i> Download</button>
+                </div>
+                <div class="card p-3 mb-3 bg-light">
+                    <h5 id="studentName" class="fw-bold m-0">Name</h5>
+                    <small id="studentBatch" class="text-muted">Batch: ...</small>
+                </div>
+                <div id="answerSheetContent"></div>
+                <div class="card p-3 mt-3 border-success sticky-bottom shadow">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label class="fw-bold text-success">মোট নম্বর:</label>
+                        <span id="liveTotalMark" class="h4 fw-bold text-dark m-0">0</span>
+                    </div>
+                    <button onclick="publishResult()" class="btn btn-success w-100 fw-bold">ফলাফল প্রকাশ করুন</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="bottom-nav">
+            <div class="nav-item active" onclick="switchTab('home', this)"><i class="fas fa-home"></i> হোম</div>
+            <div class="nav-item" onclick="switchTab('questions', this)"><i class="fas fa-file-signature"></i> প্রশ্ন</div>
+            <div class="nav-item" onclick="switchTab('grading', this)"><i class="fas fa-check-double"></i> খাতা</div>
+        </div>
+    </div>
+</div>
+
+<!-- PRINT PREVIEW -->
+<div id="printPreviewOverlay" class="hidden">
+    <div class="text-center no-print-btn mb-4">
+        <button onclick="window.print()" class="btn btn-primary btn-lg me-3"><i class="fas fa-print"></i> প্রিন্ট</button>
+        <button onclick="document.getElementById('printPreviewOverlay').classList.add('hidden')" class="btn btn-secondary btn-lg">বন্ধ করুন</button>
+    </div>
+    <div style="border: 2px solid #000; padding: 20px;">
+        <div class="text-center border-bottom border-dark pb-2 mb-2">
+            <h2>মেকানিক ই-এক্সাম</h2><p class="m-0">ফলাফল</p>
+        </div>
+        <div class="d-flex justify-content-between fw-bold mb-3 small">
+            <span>নাম: <span id="pName"></span></span>
+            <span>আইডি: <span id="pId"></span></span>
+            <span>ব্যাচ: <span id="pBatch"></span></span>
+        </div>
+        <table class="print-table">
+            <thead><tr><th width="5%">#</th><th width="45%">প্রশ্ন</th><th width="35%">উত্তর</th><th width="15%">নম্বর</th></tr></thead>
+            <tbody id="printTableBody"></tbody>
+            <tfoot><tr><td colspan="3" class="text-end fw-bold">মোট:</td><td class="fw-bold" id="pTotal">0</td></tr></tfoot>
+        </table>
+        <div class="mt-5 text-end"><p>___________________</p><p>এডমিন স্বাক্ষর</p></div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, query, where, getDocs, deleteDoc, Timestamp, orderBy, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyBEfs_yi_U5AObahTTLQGK5Sj4k1wSBXb0", 
+        authDomain: "ansar-vdp.firebaseapp.com",
+        projectId: "ansar-vdp",
+        storageBucket: "ansar-vdp.firebasestorage.app",
+        messagingSenderId: "934221161236",
+        appId: "1:934221161236:web:bd4797c63c4fd5418f9801"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    let currentSubId = null;
+    let currentStudentUid = null;
+    let currentPaperData = null;
+    let questionsMap = {}; 
+    let activeBatchId = "batch_1"; 
+
+    // --- AUTO ADMIN LOGIN LOGIC ---
+    window.adminLogin = async () => {
+        const email = document.getElementById("adminEmail").value;
+        const pass = document.getElementById("adminPass").value;
+        const btn = document.getElementById("loginBtn");
+
+        if(!email || !pass) return showToast("ইমেইল ও পাসওয়ার্ড দিন", "error");
+
+        btn.disabled = true;
+        btn.innerText = "যাচাই হচ্ছে...";
+
+        try {
+            const userCredential = await signInWithEmailAndPassword(auth, email, pass);
+            const user = userCredential.user;
+            
+            // Check if User Doc exists in DB
+            const userDocRef = doc(db, "users", user.uid);
+            const userDoc = await getDoc(userDocRef);
+            
+            if (!userDoc.exists()) {
+                // IMPORTANT: If user doesn't exist in 'users' collection, CREATE as ADMIN
+                // This allows you to login for the first time
+                await setDoc(userDocRef, {
+                    uid: user.uid,
+                    email: user.email,
+                    isAdmin: true, // Auto-Admin
+                    createdAt: Timestamp.now()
+                });
+                showToast("নতুন এডমিন সেটআপ সফল!", "success");
+                document.getElementById("loginSection").classList.add("hidden");
+                document.getElementById("mainApp").classList.remove("hidden");
+                initApp();
+            } 
+            else if (userDoc.exists() && userDoc.data().isAdmin === true) {
+                // Existing Admin
+                document.getElementById("loginSection").classList.add("hidden");
+                document.getElementById("mainApp").classList.remove("hidden");
+                initApp();
+            } else {
+                // Exists but NOT admin
+                await signOut(auth);
+                throw new Error("NOT_ADMIN");
+            }
+        } catch (e) { 
+            console.error(e);
+            let msg = "লগইন ব্যর্থ!";
+            if(e.message === "NOT_ADMIN") msg = "অ্যাক্সেস নেই! আপনি এডমিন নন।";
+            showToast(msg, "error");
+            if(auth.currentUser) await signOut(auth);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "লগইন";
+        }
+    }
+    
+    window.logout = () => signOut(auth).then(() => window.location.reload());
+
+    window.switchTab = (viewId, el) => {
+        document.querySelectorAll(".view-section").forEach(d => d.classList.add("hidden"));
+        document.getElementById(`view-${viewId}`).classList.remove("hidden");
+        document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+        el.classList.add("active");
+        if(viewId === 'questions') loadQuestions();
+        if(viewId === 'grading') loadSubmissions();
+        if(viewId === 'home') loadDistricts();
+    }
+
+    function initApp() {
+        getDocs(collection(db, "users")).then(snap => document.getElementById("totalUsers").innerText = snap.size);
+        getDoc(doc(db, "app_settings", "exam_config")).then(d => {
+            if(d.exists()) {
+                const data = d.data();
+                document.getElementById("examSwitch").checked = data.isOn;
+                document.getElementById("examDuration").value = data.duration;
+                activeBatchId = data.batchId || "batch_1";
+                document.getElementById("examBatchId").value = activeBatchId;
+                document.getElementById("displayBatchBadge").innerText = `Batch: ${activeBatchId}`;
+            }
+        });
+        loadDistricts();
+    }
+
+    window.showToast = (msg, type="success") => Toastify({ text: msg, duration: 3000, style: { background: type === "error" ? "#dc3545" : "#198754" }, gravity: "bottom" }).showToast();
+
+    window.saveConfig = async () => {
+        const dur = document.getElementById("examDuration").value;
+        const newBatch = document.getElementById("examBatchId").value || "batch_1";
+        await setDoc(doc(db, "app_settings", "exam_config"), { duration: dur, batchId: newBatch }, { merge: true });
+        activeBatchId = newBatch;
+        document.getElementById("displayBatchBadge").innerText = `Batch: ${activeBatchId}`;
+        showToast("আপডেট হয়েছে!");
+        if(!document.getElementById("view-questions").classList.contains("hidden")) loadQuestions();
+    }
+
+    window.toggleExamStatus = async () => {
+        const isOn = document.getElementById("examSwitch").checked;
+        await setDoc(doc(db, "app_settings", "exam_config"), { isOn: isOn }, { merge: true });
+        showToast(isOn ? "পরীক্ষা চালু" : "পরীক্ষা বন্ধ");
+    }
+
+    async function loadDistricts() {
+        const c = document.getElementById("districtListContainer");
+        const s = await getDoc(doc(db, "app_settings", "districts"));
+        if(s.exists() && s.data().list) {
+            c.innerHTML = "";
+            s.data().list.sort().forEach(d => c.innerHTML += `<span class="district-badge">${d} <i class="fas fa-times-circle" onclick="deleteDistrict('${d}')"></i></span>`);
+        } else c.innerHTML = "<small class='text-muted'>নেই</small>";
+    }
+
+    window.addDistrict = async () => {
+        const n = document.getElementById("newDistrictInput").value.trim();
+        if(!n) return;
+        await setDoc(doc(db, "app_settings", "districts"), { list: arrayUnion(n) }, { merge: true });
+        document.getElementById("newDistrictInput").value = "";
+        loadDistricts();
+    }
+
+    window.deleteDistrict = async (n) => {
+        if(confirm("মুছবেন?")) { await updateDoc(doc(db, "app_settings", "districts"), { list: arrayRemove(n) }); loadDistricts(); }
+    }
+
+    window.generateKey = async () => {
+        const d = document.getElementById("keyDays").value;
+        const k = Math.random().toString(36).substring(2, 10).toUpperCase();
+        await addDoc(collection(db, "activation_keys"), { key: k, days: parseInt(d), used: false });
+        document.getElementById("newKeyDisplay").innerText = `Key: ${k}`;
+    }
+
+    window.handleQType = () => document.getElementById("mcqOptionsDiv").classList.toggle("hidden", document.getElementById("qType").value !== "mcq");
+
+    window.addQuestion = async () => {
+        const type = document.getElementById("qType").value;
+        const txt = document.getElementById("qText").value;
+        const mk = document.getElementById("qMark").value;
+        const eid = document.getElementById("editQId").value;
+        if(!txt || !mk) return showToast("তথ্য দিন", "error");
+
+        let opts = [];
+        if(type === 'mcq') { for(let i=1; i<=4; i++) { let v = document.getElementById(`opt${i}`).value; if(v) opts.push(v); } }
+        else if (type === 'truefalse') opts = ["সত্য", "মিথ্যা"];
+
+        const qd = { question: txt, type: type, options: opts, marks: parseInt(mk), createdAt: Timestamp.now(), batchId: activeBatchId };
+        
+        if(eid) { await updateDoc(doc(db, "exam_questions", eid), qd); cancelEdit(); }
+        else { await addDoc(collection(db, "exam_questions"), qd); }
+        document.getElementById("qText").value = "";
+        loadQuestions();
+        showToast("সেভ হয়েছে");
+    }
+
+    async function loadQuestions() {
+        const list = document.getElementById("allQuestionsList");
+        list.innerHTML = "লোডিং...";
+        const snap = await getDocs(query(collection(db, "exam_questions"), orderBy("createdAt", "desc")));
+        list.innerHTML = "";
+        questionsMap = {};
+        let cnt = 0;
+        snap.forEach(d => {
+            const da = d.data();
+            if(da.batchId === activeBatchId) {
+                cnt++;
+                questionsMap[d.id] = da;
+                let bg = da.type === 'mcq' ? 'MCQ' : (da.type==='truefalse'?'T/F':'Written');
+                list.innerHTML += `<div class="q-item"><div class="d-flex justify-content-between"><span class="q-badge">${bg}</span><span class="mark-badge">মার্ক: ${da.marks}</span></div><div class="mt-2 fw-bold">${da.question}</div><div class="mt-2"><button onclick="editQ('${d.id}')" class="btn btn-sm btn-outline-primary py-0"><i class="fas fa-edit"></i></button><button onclick="deleteQ('${d.id}')" class="btn btn-sm btn-outline-danger py-0 ms-2"><i class="fas fa-trash"></i></button></div></div>`;
+            }
+        });
+        if(cnt===0) list.innerHTML = `<p class="text-center text-muted mt-3">এই ব্যাচে (${activeBatchId}) কোনো প্রশ্ন নেই।</p>`;
+    }
+
+    window.editQ = (id) => {
+        const d = questionsMap[id];
+        document.querySelector('.app-container').scrollTo(0, 0);
+        document.getElementById("editQId").value = id;
+        document.getElementById("qType").value = d.type; handleQType();
+        document.getElementById("qText").value = d.question;
+        document.getElementById("qMark").value = d.marks;
+        if(d.type==='mcq') d.options.forEach((o, i) => { if(i<4) document.getElementById(`opt${i+1}`).value = o; });
+        document.getElementById("qBoxTitle").innerHTML = 'এডিট মোড';
+        document.getElementById("saveQBtn").innerText = "আপডেট";
+        document.getElementById("cancelEditBtn").classList.remove("hidden");
+    }
+
+    window.cancelEdit = () => {
+        document.getElementById("editQId").value = "";
+        document.getElementById("qText").value = "";
+        document.getElementById("qMark").value = "1";
+        document.querySelectorAll("#mcqOptionsDiv input").forEach(i => i.value = "");
+        document.getElementById("qBoxTitle").innerHTML = 'প্রশ্ন যোগ';
+        document.getElementById("saveQBtn").innerText = "সেভ";
+        document.getElementById("cancelEditBtn").classList.add("hidden");
+    }
+
+    window.deleteQ = async (id) => { if(confirm("মুছবেন?")) { await deleteDoc(doc(db, "exam_questions", id)); loadQuestions(); } }
+
+    async function loadSubmissions() {
+        const ul = document.getElementById("submissionList");
+        ul.innerHTML = "লোডিং...";
+        const snap = await getDocs(query(collection(db, "exam_submissions"), where("status", "==", "pending")));
+        ul.innerHTML = "";
+        if(snap.empty) { ul.innerHTML = "<p class='text-center mt-3 text-muted'>খাতা নেই</p>"; return; }
+        snap.forEach(d => {
+            const da = d.data();
+            ul.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center" onclick="openPaper('${d.id}', '${da.uid}')"><div><div class="fw-bold">${da.name}</div><small class="text-muted">Batch: ${da.batchId||'N/A'}</small></div><i class="fas fa-chevron-right"></i></li>`;
+        });
+    }
+
+    window.openPaper = async (sid, uid) => {
+        currentSubId = sid; currentStudentUid = uid;
+        document.getElementById("submissionListContainer").classList.add("hidden");
+        document.getElementById("gradingPaper").classList.remove("hidden");
+        const s = await getDoc(doc(db, "exam_submissions", sid));
+        currentPaperData = s.data();
+        document.getElementById("studentName").innerText = currentPaperData.name;
+        document.getElementById("studentBatch").innerText = `Batch: ${currentPaperData.batchId||'Old'}`;
+        const c = document.getElementById("answerSheetContent"); c.innerHTML = "";
+        if(currentPaperData.answers) {
+            currentPaperData.answers.forEach((a, i) => {
+                let st = a.userAnswer ? "color:#0f5132" : "color:#dc3545";
+                c.innerHTML += `<div class="border p-2 mb-2 rounded bg-white shadow-sm"><p class="mb-1 small fw-bold">${i+1}: ${a.questionTitle}</p><div style="${st}" class="mb-2">উত্তর: ${a.userAnswer||"নেই"}</div><div class="d-flex align-items-center bg-light p-2 rounded"><label class="me-2 small fw-bold">নম্বর:</label><input type="number" class="form-control form-control-sm mark-input border-primary" style="width: 100px;" data-index="${i}" placeholder="0" oninput="calculateTotal()"></div></div>`;
+            });
+        }
+        calculateTotal();
+    }
+
+    window.calculateTotal = () => {
+        let t = 0;
+        document.querySelectorAll(".mark-input").forEach(i => t += Number(i.value)||0);
+        document.getElementById("liveTotalMark").innerText = t;
+        return t;
+    }
+
+    window.publishResult = async () => {
+        const t = calculateTotal();
+        const ins = document.querySelectorAll(".mark-input");
+        let ans = [...currentPaperData.answers];
+        ins.forEach(i => { ans[i.getAttribute("data-index")].obtainedMark = Number(i.value)||0; });
+        if(confirm(`মোট নম্বর: ${t}। পাবলিশ করবেন?`)) {
+            await updateDoc(doc(db, "exam_submissions", currentSubId), { status: 'published', score: t, answers: ans });
+            await updateDoc(doc(db, "users", currentStudentUid), { resultPublished: true, examScore: t });
+            showToast("পাবলিশ হয়েছে!"); closeGradingPaper(); loadSubmissions();
+        }
+    }
+
+    window.closeGradingPaper = () => {
+        document.getElementById("gradingPaper").classList.add("hidden");
+        document.getElementById("submissionListContainer").classList.remove("hidden");
+    }
+
+    window.openPrintPreview = () => {
+        if(!currentPaperData) return;
+        document.getElementById("pName").innerText = currentPaperData.name;
+        document.getElementById("pId").innerText = currentPaperData.serialId || 'N/A';
+        document.getElementById("pBatch").innerText = currentPaperData.batchId || 'N/A';
+        const ins = document.querySelectorAll(".mark-input");
+        const tb = document.getElementById("printTableBody"); tb.innerHTML = "";
+        let t = 0;
+        currentPaperData.answers.forEach((a, i) => {
+            const v = ins[i] ? (Number(ins[i].value)||0) : 0; t += v;
+            tb.innerHTML += `<tr><td>${i+1}</td><td>${a.questionTitle}</td><td>${a.userAnswer||'-'}</td><td>${v}</td></tr>`;
+        });
+        document.getElementById("pTotal").innerText = t;
+        document.getElementById("printPreviewOverlay").classList.remove("hidden");
+        setTimeout(() => window.print(), 1000);
+    }
+</script>
+</body>
+</html>

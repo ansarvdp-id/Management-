@@ -11,7 +11,10 @@
     <style>
         body { background-color: #f0f2f5; font-family: 'Arial', sans-serif; padding-bottom: 70px; }
         .app-container { max-width: 480px; margin: 0 auto; background: white; min-height: 100vh; position: relative; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        
+        /* Top Bar Updated */
         .top-bar { background: #212529; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+        
         .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: white; border-top: 1px solid #ddd; display: flex; justify-content: space-around; padding: 10px 0; z-index: 1000; }
         @media (min-width: 480px) { .bottom-nav { width: 480px; left: 50%; transform: translateX(-50%); } }
         .nav-item { text-align: center; color: #6c757d; font-size: 12px; cursor: pointer; flex: 1; }
@@ -23,8 +26,10 @@
         .q-badge { font-size: 10px; background: #212529; color: white; padding: 2px 6px; border-radius: 4px; }
         .district-badge { font-size: 14px; background: #e9ecef; color: #333; padding: 5px 10px; border-radius: 20px; display: inline-flex; align-items: center; margin: 3px; border: 1px solid #ced4da; }
         .district-badge i { margin-left: 8px; cursor: pointer; color: #dc3545; }
-        .login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #212529; z-index: 2000; display: flex; align-items: center; justify-content: center; }
-        .login-box { background: white; padding: 30px; border-radius: 10px; width: 90%; max-width: 400px; text-align: center; }
+        
+        /* Overlays */
+        .login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(33, 37, 41, 0.95); z-index: 2000; display: flex; align-items: center; justify-content: center; }
+        .login-box { background: white; padding: 30px; border-radius: 10px; width: 90%; max-width: 400px; text-align: center; position: relative; }
 
         /* Print Preview */
         #printPreviewOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 9999; overflow-y: auto; padding: 20px; }
@@ -54,11 +59,41 @@
         </div>
     </div>
 
+    <!-- PASSWORD CHANGE MODAL (NEW) -->
+    <div id="settingsModal" class="login-overlay hidden">
+        <div class="login-box">
+            <button onclick="closeSettingsModal()" class="btn btn-sm btn-light position-absolute top-0 end-0 m-2 rounded-circle"><i class="fas fa-times"></i></button>
+            <h5 class="mb-4"><i class="fas fa-key text-warning"></i> পাসওয়ার্ড পরিবর্তন</h5>
+            
+            <div class="text-start mb-3">
+                <label class="small fw-bold">বর্তমান পাসওয়ার্ড:</label>
+                <input type="password" id="currentPass" class="form-control" placeholder="বর্তমান পাসওয়ার্ড দিন">
+            </div>
+            
+            <div class="text-start mb-3">
+                <label class="small fw-bold">নতুন পাসওয়ার্ড:</label>
+                <input type="password" id="newPass" class="form-control" placeholder="নতুন পাসওয়ার্ড (মিনিমাম ৬ সংখ্যা)">
+            </div>
+
+            <button onclick="changeAdminPassword()" id="changePassBtn" class="btn btn-primary w-100">পরিবর্তন করুন</button>
+        </div>
+    </div>
+
     <!-- MAIN APP -->
     <div id="mainApp" class="hidden">
+        <!-- TOP BAR (UPDATED) -->
         <div class="top-bar">
             <span class="fw-bold"><i class="fas fa-user-cog"></i> Admin Panel</span>
-            <button onclick="logout()" class="btn btn-sm btn-danger"><i class="fas fa-power-off"></i></button>
+            <div>
+                <!-- Settings Button -->
+                <button onclick="openSettingsModal()" class="btn btn-sm btn-light me-2 rounded-circle" title="Settings">
+                    <i class="fas fa-cog text-dark"></i>
+                </button>
+                <!-- Logout Button -->
+                <button onclick="logout()" class="btn btn-sm btn-danger rounded-circle" title="Logout">
+                    <i class="fas fa-power-off"></i>
+                </button>
+            </div>
         </div>
 
         <!-- HOME -->
@@ -112,19 +147,31 @@
                     <span class="badge bg-warning text-dark" id="displayBatchBadge">Batch: ...</span>
                 </div>
                 <input type="hidden" id="editQId" value="">
+                
                 <select id="qType" class="form-select mb-2" onchange="handleQType()">
-                    <option value="short">লিখিত</option>
+                    <option value="short">লিখিত (Short)</option>
+                    <option value="fillblank">শুন্যস্থান পূরণ</option>
                     <option value="mcq">MCQ</option>
                     <option value="truefalse">সত্য/মিথ্যা</option>
                 </select>
-                <input type="text" id="qText" class="form-control mb-2" placeholder="প্রশ্ন...">
+
+                <input type="text" id="qText" class="form-control mb-2" placeholder="প্রশ্ন লিখুন...">
+                
+                <!-- নির্দেশিকা (Help Text) -->
+                <div id="blankHelp" class="hidden small text-muted mb-2 fst-italic p-2 bg-light border rounded">
+                    <i class="fas fa-info-circle text-primary"></i> <b>নিয়ম:</b> উত্তরের শব্দটি [ ] এর ভেতরে লিখুন। <br>
+                    যেমন: <code>বাংলাদেশের রাজধানী [ঢাকা]।</code>
+                </div>
+
                 <input type="number" id="qMark" class="form-control mb-2" placeholder="মার্ক" value="1">
+                
                 <div id="mcqOptionsDiv" class="hidden p-2 bg-light border rounded mb-2">
                     <input type="text" id="opt1" class="form-control form-control-sm mb-1" placeholder="অপশন ১">
                     <input type="text" id="opt2" class="form-control form-control-sm mb-1" placeholder="অপশন ২">
                     <input type="text" id="opt3" class="form-control form-control-sm mb-1" placeholder="অপশন ৩">
                     <input type="text" id="opt4" class="form-control form-control-sm mb-1" placeholder="অপশন ৪">
                 </div>
+                
                 <div class="d-flex gap-2">
                     <button onclick="addQuestion()" id="saveQBtn" class="btn btn-primary w-100">সেভ করুন</button>
                     <button onclick="cancelEdit()" id="cancelEditBtn" class="btn btn-secondary hidden">বাতিল</button>
@@ -143,21 +190,36 @@
         <div id="view-grading" class="view-section hidden">
             <div id="submissionListContainer" class="p-3">
                 <h5 class="mb-3">খাতা দেখুন</h5>
+                
+                <!-- Toggle Button for Pending/Published -->
+                <div class="btn-group w-100 mb-3" role="group">
+                    <input type="radio" class="btn-check" name="statusBtn" id="btnPending" autocomplete="off" checked onclick="loadSubmissions('pending')">
+                    <label class="btn btn-outline-primary" for="btnPending">অপেক্ষমান</label>
+
+                    <input type="radio" class="btn-check" name="statusBtn" id="btnPublished" autocomplete="off" onclick="loadSubmissions('published')">
+                    <label class="btn btn-outline-success" for="btnPublished">প্রকাশিত</label>
+                </div>
+
                 <ul id="submissionList" class="list-group">
                     <li class="list-group-item text-center text-muted">লোড হচ্ছে...</li>
                 </ul>
             </div>
+            
             <div id="gradingPaper" class="hidden p-3 bg-white min-vh-100">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <button onclick="closeGradingPaper()" class="btn btn-sm btn-secondary">ব্যাকে যান</button>
+                    <!-- PDF Button -->
                     <button onclick="openPrintPreview()" class="btn btn-sm btn-dark"><i class="fas fa-file-pdf"></i> Download</button>
                 </div>
                 <div class="card p-3 mb-3 bg-light">
                     <h5 id="studentName" class="fw-bold m-0">Name</h5>
                     <small id="studentBatch" class="text-muted">Batch: ...</small>
+                    <span id="paperStatusBadge" class="badge bg-secondary mt-1 w-25">Status</span>
                 </div>
                 <div id="answerSheetContent"></div>
-                <div class="card p-3 mt-3 border-success sticky-bottom shadow">
+                
+                <!-- Result Publish Box -->
+                <div id="publishControlBox" class="card p-3 mt-3 border-success sticky-bottom shadow">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <label class="fw-bold text-success">মোট নম্বর:</label>
                         <span id="liveTotalMark" class="h4 fw-bold text-dark m-0">0</span>
@@ -202,8 +264,9 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
 <script type="module">
+    // UPDATED IMPORTS FOR PASSWORD CHANGE (updatePassword, reauthenticateWithCredential, EmailAuthProvider)
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
     import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, query, where, getDocs, deleteDoc, Timestamp, orderBy, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -224,8 +287,8 @@
     let currentPaperData = null;
     let questionsMap = {}; 
     let activeBatchId = "batch_1"; 
+    let currentViewStatus = 'pending';
 
-    // --- AUTO ADMIN LOGIN LOGIC ---
     window.adminLogin = async () => {
         const email = document.getElementById("adminEmail").value;
         const pass = document.getElementById("adminPass").value;
@@ -240,17 +303,14 @@
             const userCredential = await signInWithEmailAndPassword(auth, email, pass);
             const user = userCredential.user;
             
-            // Check if User Doc exists in DB
             const userDocRef = doc(db, "users", user.uid);
             const userDoc = await getDoc(userDocRef);
             
             if (!userDoc.exists()) {
-                // IMPORTANT: If user doesn't exist in 'users' collection, CREATE as ADMIN
-                // This allows you to login for the first time
                 await setDoc(userDocRef, {
                     uid: user.uid,
                     email: user.email,
-                    isAdmin: true, // Auto-Admin
+                    isAdmin: true,
                     createdAt: Timestamp.now()
                 });
                 showToast("নতুন এডমিন সেটআপ সফল!", "success");
@@ -259,12 +319,10 @@
                 initApp();
             } 
             else if (userDoc.exists() && userDoc.data().isAdmin === true) {
-                // Existing Admin
                 document.getElementById("loginSection").classList.add("hidden");
                 document.getElementById("mainApp").classList.remove("hidden");
                 initApp();
             } else {
-                // Exists but NOT admin
                 await signOut(auth);
                 throw new Error("NOT_ADMIN");
             }
@@ -282,13 +340,62 @@
     
     window.logout = () => signOut(auth).then(() => window.location.reload());
 
+    // --- PASSWORD CHANGE LOGIC ---
+    window.openSettingsModal = () => {
+        document.getElementById("settingsModal").classList.remove("hidden");
+    }
+
+    window.closeSettingsModal = () => {
+        document.getElementById("settingsModal").classList.add("hidden");
+        document.getElementById("currentPass").value = "";
+        document.getElementById("newPass").value = "";
+    }
+
+    window.changeAdminPassword = async () => {
+        const oldPass = document.getElementById("currentPass").value;
+        const newPass = document.getElementById("newPass").value;
+        const btn = document.getElementById("changePassBtn");
+
+        if(!oldPass || !newPass) return showToast("সব তথ্য দিন", "error");
+        if(newPass.length < 6) return showToast("নতুন পাসওয়ার্ড কমপক্ষে ৬ সংখ্যার হতে হবে", "error");
+
+        const user = auth.currentUser;
+        if(!user) return;
+
+        btn.disabled = true;
+        btn.innerText = "আপডেট হচ্ছে...";
+
+        try {
+            // Re-authenticate user before changing password
+            const credential = EmailAuthProvider.credential(user.email, oldPass);
+            await reauthenticateWithCredential(user, credential);
+            
+            // Update Password
+            await updatePassword(user, newPass);
+            
+            showToast("পাসওয়ার্ড সফলভাবে পরিবর্তন হয়েছে!", "success");
+            closeSettingsModal();
+        } catch (error) {
+            console.error(error);
+            if(error.code === 'auth/wrong-password') {
+                showToast("বর্তমান পাসওয়ার্ড ভুল!", "error");
+            } else {
+                showToast("পাসওয়ার্ড পরিবর্তন ব্যর্থ: " + error.message, "error");
+            }
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "পরিবর্তন করুন";
+        }
+    }
+    // ----------------------------
+
     window.switchTab = (viewId, el) => {
         document.querySelectorAll(".view-section").forEach(d => d.classList.add("hidden"));
         document.getElementById(`view-${viewId}`).classList.remove("hidden");
         document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
         el.classList.add("active");
         if(viewId === 'questions') loadQuestions();
-        if(viewId === 'grading') loadSubmissions();
+        if(viewId === 'grading') loadSubmissions('pending');
         if(viewId === 'home') loadDistricts();
     }
 
@@ -353,7 +460,13 @@
         document.getElementById("newKeyDisplay").innerText = `Key: ${k}`;
     }
 
-    window.handleQType = () => document.getElementById("mcqOptionsDiv").classList.toggle("hidden", document.getElementById("qType").value !== "mcq");
+    window.handleQType = () => {
+        const type = document.getElementById("qType").value;
+        document.getElementById("mcqOptionsDiv").classList.toggle("hidden", type !== "mcq");
+        
+        const help = document.getElementById("blankHelp");
+        if(help) help.classList.toggle("hidden", type !== "fillblank");
+    }
 
     window.addQuestion = async () => {
         const type = document.getElementById("qType").value;
@@ -387,8 +500,28 @@
             if(da.batchId === activeBatchId) {
                 cnt++;
                 questionsMap[d.id] = da;
-                let bg = da.type === 'mcq' ? 'MCQ' : (da.type==='truefalse'?'T/F':'Written');
-                list.innerHTML += `<div class="q-item"><div class="d-flex justify-content-between"><span class="q-badge">${bg}</span><span class="mark-badge">মার্ক: ${da.marks}</span></div><div class="mt-2 fw-bold">${da.question}</div><div class="mt-2"><button onclick="editQ('${d.id}')" class="btn btn-sm btn-outline-primary py-0"><i class="fas fa-edit"></i></button><button onclick="deleteQ('${d.id}')" class="btn btn-sm btn-outline-danger py-0 ms-2"><i class="fas fa-trash"></i></button></div></div>`;
+                
+                let typeLabel = "Written";
+                if(da.type === 'mcq') typeLabel = "MCQ";
+                else if(da.type === 'truefalse') typeLabel = "T/F";
+                else if(da.type === 'fillblank') typeLabel = "Blank";
+
+                let displayQ = da.question;
+                if(da.type === 'fillblank') {
+                    displayQ = displayQ.replace(/\[(.*?)\]/g, '<span class="text-success fw-bold text-decoration-underline">$1</span>');
+                }
+
+                list.innerHTML += `<div class="q-item">
+                    <div class="d-flex justify-content-between">
+                        <span class="q-badge">${typeLabel}</span>
+                        <span class="mark-badge">মার্ক: ${da.marks}</span>
+                    </div>
+                    <div class="mt-2 text-dark">${displayQ}</div>
+                    <div class="mt-2">
+                        <button onclick="editQ('${d.id}')" class="btn btn-sm btn-outline-primary py-0"><i class="fas fa-edit"></i></button>
+                        <button onclick="deleteQ('${d.id}')" class="btn btn-sm btn-outline-danger py-0 ms-2"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>`;
             }
         });
         if(cnt===0) list.innerHTML = `<p class="text-center text-muted mt-3">এই ব্যাচে (${activeBatchId}) কোনো প্রশ্ন নেই।</p>`;
@@ -419,15 +552,23 @@
 
     window.deleteQ = async (id) => { if(confirm("মুছবেন?")) { await deleteDoc(doc(db, "exam_questions", id)); loadQuestions(); } }
 
-    async function loadSubmissions() {
+    window.loadSubmissions = async (status = 'pending') => {
+        currentViewStatus = status;
         const ul = document.getElementById("submissionList");
         ul.innerHTML = "লোডিং...";
-        const snap = await getDocs(query(collection(db, "exam_submissions"), where("status", "==", "pending")));
+        
+        document.getElementById("btnPending").checked = (status === 'pending');
+        document.getElementById("btnPublished").checked = (status === 'published');
+
+        const snap = await getDocs(query(collection(db, "exam_submissions"), where("status", "==", status), orderBy("createdAt", "desc")));
+        
         ul.innerHTML = "";
-        if(snap.empty) { ul.innerHTML = "<p class='text-center mt-3 text-muted'>খাতা নেই</p>"; return; }
+        if(snap.empty) { ul.innerHTML = `<p class='text-center mt-3 text-muted'>কোনো ${status === 'pending' ? 'অপেক্ষমান' : 'প্রকাশিত'} খাতা নেই</p>`; return; }
+        
         snap.forEach(d => {
             const da = d.data();
-            ul.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center" onclick="openPaper('${d.id}', '${da.uid}')"><div><div class="fw-bold">${da.name}</div><small class="text-muted">Batch: ${da.batchId||'N/A'}</small></div><i class="fas fa-chevron-right"></i></li>`;
+            let scoreBadge = da.status === 'published' ? `<span class="badge bg-success ms-2">${da.score}</span>` : '';
+            ul.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center" onclick="openPaper('${d.id}', '${da.uid}')"><div><div class="fw-bold">${da.name} ${scoreBadge}</div><small class="text-muted">Batch: ${da.batchId||'N/A'}</small></div><i class="fas fa-chevron-right"></i></li>`;
         });
     }
 
@@ -435,18 +576,45 @@
         currentSubId = sid; currentStudentUid = uid;
         document.getElementById("submissionListContainer").classList.add("hidden");
         document.getElementById("gradingPaper").classList.remove("hidden");
+        
         const s = await getDoc(doc(db, "exam_submissions", sid));
         currentPaperData = s.data();
+        
         document.getElementById("studentName").innerText = currentPaperData.name;
         document.getElementById("studentBatch").innerText = `Batch: ${currentPaperData.batchId||'Old'}`;
+        document.getElementById("paperStatusBadge").innerText = currentPaperData.status === 'published' ? "প্রকাশিত (Published)" : "অপেক্ষমান (Pending)";
+        document.getElementById("paperStatusBadge").className = currentPaperData.status === 'published' ? "badge bg-success" : "badge bg-warning text-dark";
+
         const c = document.getElementById("answerSheetContent"); c.innerHTML = "";
+        
         if(currentPaperData.answers) {
             currentPaperData.answers.forEach((a, i) => {
                 let st = a.userAnswer ? "color:#0f5132" : "color:#dc3545";
-                c.innerHTML += `<div class="border p-2 mb-2 rounded bg-white shadow-sm"><p class="mb-1 small fw-bold">${i+1}: ${a.questionTitle}</p><div style="${st}" class="mb-2">উত্তর: ${a.userAnswer||"নেই"}</div><div class="d-flex align-items-center bg-light p-2 rounded"><label class="me-2 small fw-bold">নম্বর:</label><input type="number" class="form-control form-control-sm mark-input border-primary" style="width: 100px;" data-index="${i}" placeholder="0" oninput="calculateTotal()"></div></div>`;
+                let prevMark = a.obtainedMark !== undefined ? a.obtainedMark : ''; 
+                
+                c.innerHTML += `<div class="border p-2 mb-2 rounded bg-white shadow-sm">
+                    <p class="mb-1 small fw-bold">${i+1}: ${a.questionTitle}</p>
+                    <div style="${st}" class="mb-2">উত্তর: ${a.userAnswer||"নেই"}</div>
+                    <div class="d-flex align-items-center bg-light p-2 rounded">
+                        <label class="me-2 small fw-bold">নম্বর:</label>
+                        <input type="number" class="form-control form-control-sm mark-input border-primary" 
+                            style="width: 100px;" 
+                            data-index="${i}" 
+                            value="${prevMark}" 
+                            placeholder="0" 
+                            oninput="calculateTotal()"
+                            ${currentPaperData.status === 'published' ? 'disabled' : ''}>
+                    </div>
+                </div>`;
             });
         }
         calculateTotal();
+
+        if(currentPaperData.status === 'published') {
+            document.getElementById("publishControlBox").classList.add("hidden");
+        } else {
+            document.getElementById("publishControlBox").classList.remove("hidden");
+        }
     }
 
     window.calculateTotal = () => {
@@ -461,16 +629,20 @@
         const ins = document.querySelectorAll(".mark-input");
         let ans = [...currentPaperData.answers];
         ins.forEach(i => { ans[i.getAttribute("data-index")].obtainedMark = Number(i.value)||0; });
+        
         if(confirm(`মোট নম্বর: ${t}। পাবলিশ করবেন?`)) {
             await updateDoc(doc(db, "exam_submissions", currentSubId), { status: 'published', score: t, answers: ans });
             await updateDoc(doc(db, "users", currentStudentUid), { resultPublished: true, examScore: t });
-            showToast("পাবলিশ হয়েছে!"); closeGradingPaper(); loadSubmissions();
+            showToast("পাবলিশ হয়েছে!"); 
+            closeGradingPaper(); 
+            loadSubmissions('pending'); 
         }
     }
 
     window.closeGradingPaper = () => {
         document.getElementById("gradingPaper").classList.add("hidden");
         document.getElementById("submissionListContainer").classList.remove("hidden");
+        loadSubmissions(currentViewStatus); 
     }
 
     window.openPrintPreview = () => {
@@ -478,13 +650,22 @@
         document.getElementById("pName").innerText = currentPaperData.name;
         document.getElementById("pId").innerText = currentPaperData.serialId || 'N/A';
         document.getElementById("pBatch").innerText = currentPaperData.batchId || 'N/A';
+        
         const ins = document.querySelectorAll(".mark-input");
         const tb = document.getElementById("printTableBody"); tb.innerHTML = "";
         let t = 0;
+        
         currentPaperData.answers.forEach((a, i) => {
-            const v = ins[i] ? (Number(ins[i].value)||0) : 0; t += v;
+            let v = 0;
+            if(ins[i]) {
+                v = Number(ins[i].value) || 0;
+            } else if (a.obtainedMark) {
+                v = a.obtainedMark;
+            }
+            t += v;
             tb.innerHTML += `<tr><td>${i+1}</td><td>${a.questionTitle}</td><td>${a.userAnswer||'-'}</td><td>${v}</td></tr>`;
         });
+        
         document.getElementById("pTotal").innerText = t;
         document.getElementById("printPreviewOverlay").classList.remove("hidden");
         setTimeout(() => window.print(), 1000);
